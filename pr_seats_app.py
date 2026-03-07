@@ -12,10 +12,10 @@ API_URL = (
 
 st.set_page_config(
     page_title="Nepal PR Seat Calculator",
-    page_icon="https://upload.wikimedia.org/wikipedia/commons/thumb/9/9b/Flag_of_Nepal.svg/64px-Flag_of_Nepal.svg.png",
+    # You can keep or remove this; favicon is optional
+    page_icon="🇳🇵",
     layout="centered",
 )
-
 
 
 @st.cache_data(ttl=60)
@@ -78,6 +78,61 @@ def main():
             .nepal-header h1 { font-size: 1.8rem; }
             .nepal-header p { font-size: 0.9rem; }
         }
+
+        .party-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            padding: 0.4rem 0.3rem;
+            border-radius: 6px;
+            background-color: white;
+            margin-bottom: 0.3rem;
+        }
+        .party-left {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            min-width: 0;
+            flex: 1 1 auto;
+        }
+        .party-logo img {
+            width: 32px;
+            height: 32px;
+            object-fit: contain;
+        }
+        .party-text {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+        .party-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .party-votes {
+            font-size: 0.8rem;
+            color: #555;
+        }
+        .party-right {
+            text-align: right;
+            margin-left: 0.4rem;
+            flex: 0 0 auto;
+            font-weight: 600;
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+        @media (max-width: 480px) {
+            .party-row {
+                padding: 0.35rem 0.25rem;
+            }
+            .party-name {
+                max-width: 130px;
+            }
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -101,7 +156,7 @@ def main():
             st.error(f"Error fetching votes: {e}")
             return
 
-    # Convert to Nepal time (UTC+5:45) for display
+    # Convert to Nepal time (UTC+5:45)
     nepal_offset_minutes = 5 * 60 + 45
     fetched_local = fetched_at_utc + pd.Timedelta(minutes=nepal_offset_minutes)
     as_of_str = fetched_local.strftime("%Y-%m-%d %H:%M:%S")
@@ -122,20 +177,25 @@ def main():
     st.subheader("Proportional seats by party")
 
     for _, row in df_view.iterrows():
-        cols = st.columns([1, 3, 2])
-        with cols[0]:
-            st.image(row["Logo"], width=40)
-        with cols[1]:
-            st.markdown(f"**{row['PartyDisplay']}**")
-            st.markdown(
-                f"<span style='font-size:0.85rem;'>Votes: {row['VotesFormatted']}</span>",
-                unsafe_allow_html=True,
-            )
-        with cols[2]:
-            st.markdown(
-                f"<span style='font-size:0.9rem;font-weight:600;'>Seats: {row['SeatsFormatted']}</span>",
-                unsafe_allow_html=True,
-            )
+        st.markdown(
+            f"""
+            <div class="party-row">
+              <div class="party-left">
+                <div class="party-logo">
+                  <img src="{row['Logo']}" alt="logo">
+                </div>
+                <div class="party-text">
+                  <div class="party-name">{row['PartyDisplay']}</div>
+                  <div class="party-votes">Votes: {row['VotesFormatted']}</div>
+                </div>
+              </div>
+              <div class="party-right">
+                Seats: {row['SeatsFormatted']}
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     total_allocated = df_all["Seats"].sum()
     st.markdown(
@@ -145,4 +205,5 @@ def main():
     )
 
 
-main()
+if __name__ == "__main__":
+    main()
