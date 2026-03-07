@@ -12,7 +12,6 @@ API_URL = (
 
 st.set_page_config(
     page_title="Nepal PR Seat Calculator",
-    # You can keep or remove this; favicon is optional
     page_icon="🇳🇵",
     layout="centered",
 )
@@ -64,7 +63,8 @@ def main():
     st.markdown(
         """
         <style>
-        .main { background: #f8f9ff; }
+        .main { background: #0e1117; }
+
         .nepal-header {
             padding: 1rem 1.5rem;
             border-radius: 10px;
@@ -84,10 +84,11 @@ def main():
             align-items: center;
             justify-content: space-between;
             gap: 0.5rem;
-            padding: 0.4rem 0.3rem;
-            border-radius: 6px;
-            background-color: white;
-            margin-bottom: 0.3rem;
+            padding: 0.45rem 0.4rem;
+            border-radius: 8px;
+            background-color: #ffffff;
+            margin-bottom: 0.35rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.10);
         }
         .party-left {
             display: flex;
@@ -97,8 +98,8 @@ def main():
             flex: 1 1 auto;
         }
         .party-logo img {
-            width: 32px;
-            height: 32px;
+            width: 30px;
+            height: 30px;
             object-fit: contain;
         }
         .party-text {
@@ -109,28 +110,38 @@ def main():
         .party-name {
             font-weight: 600;
             font-size: 0.9rem;
+            color: #111827;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
         .party-votes {
             font-size: 0.8rem;
-            color: #555;
+            color: #4b5563;
         }
         .party-right {
             text-align: right;
             margin-left: 0.4rem;
             flex: 0 0 auto;
-            font-weight: 600;
+            font-weight: 700;
             font-size: 0.9rem;
+            color: #111827;
             white-space: nowrap;
         }
+
         @media (max-width: 480px) {
             .party-row {
-                padding: 0.35rem 0.25rem;
+                padding: 0.35rem 0.3rem;
             }
             .party-name {
-                max-width: 130px;
+                max-width: 120px;
+            }
+            .party-logo img {
+                width: 26px;
+                height: 26px;
+            }
+            .party-right {
+                font-size: 0.85rem;
             }
         }
         </style>
@@ -148,7 +159,7 @@ def main():
         unsafe_allow_html=True,
     )
 
-    # Loading screen
+    # Loading spinner while fetching data
     with st.spinner("Fetching latest proportional results..."):
         try:
             df_all, fetched_at_utc = fetch_parties_df()
