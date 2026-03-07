@@ -4,11 +4,10 @@ from datetime import datetime, timezone
 
 import pandas as pd
 import streamlit as st
+from bs4 import BeautifulSoup
 
-API_URL = (
-    "https://election.onlinekhabar.com/wp-json/okelapi/v1/2082/home/"
-    "election-results?limit=10"
-)
+
+PARTIES_URL = "https://election.onlinekhabar.com/parties"
 
 st.set_page_config(
     page_title="Nepal PR Seat Calculator",
@@ -17,43 +16,83 @@ st.set_page_config(
 )
 
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=120)
 def fetch_parties_df():
-    resp = requests.get(API_URL, timeout=20)
+    resp = requests.get(PARTIES_URL, timeout=20)
     resp.raise_for_status()
-    data = resp.json()
+    html = resp.text
 
-    parties = data["data"]["party_results"]
+    soup = BeautifulSoup(html, "html.parser")
 
     records = []
-    for p in parties:
-        records.append(
-            {
-                "Slug": p["party_slug"],
-                "FullName": p["party_name"],
-                "Logo": p["party_image"],
-                "Votes": int(p["samanupatik"]),
-            }
-        )
+
+    cards = soup.select(".okel-candidate-card")
+    for card in cards:
+        # Party name: bold link inside the square
+        square = card.select_one(".candidate-card-square")
+        name = None
+        if square:
+            name_link = square.select_one("a.line-clamp-1")
+            if name_link:
+                name = name_link.get_text(strip=True)
+
+        # Party logo
+        logo_tag = card.select_one(".candidate-image-holder img")
+        logo = logo_tag["src"] if logo_tag and logo_tag.has_attr("src") else None
+
+        # समानुपातिक मत (PR votes)
+        pr_votes = 0
+        pr_label = card.find(string=lambda t: "समानुपातिक मत" in t)
+        if pr_label:
+            pr_box = pr_label.find_parent("div", class_="bg-[#F1F1F4]")
+            if pr_box:
+                num_tag = pr_box.find("h5")
+                if num_tag:
+                    raw = num_tag.get_text(strip=True)
+                    raw = raw.replace(",", "").replace(" ", "").replace("٬", "")
+                    nepali_digits = "०१२३४५६७८९"
+                    for d, nd in enumerate(nepali_digits):
+                        raw = raw.replace(nd, str(d))
+                    try:
+                        pr_votes = int(raw)
+                    except ValueError:
+                        pr_votes = 0
+
+        if name is not None:
+            records.append(
+                {
+                    "FullName": name,
+                    "Logo": logo,
+                    "Votes": pr_votes,
+                }
+            )
 
     df = pd.DataFrame(records)
+    if df.empty:
+        raise ValueError("Scraper found 0 parties – HTML structure may have changed.")
+
     fetched_at = datetime.now(timezone.utc)
     return df, fetched_at
 
 
 def sainte_lague_from_df(df, total_seats=110):
-    votes = dict(zip(df["Slug"], df["Votes"]))
+    votes = {name: int(v) for name, v in zip(df["FullName"], df["Votes"])}
 
     quotients = []
-    for slug, v in votes.items():
+    for name, v in votes.items():
+        if v <= 0:
+            continue
         for k in range(total_seats * 3):
             d = 2 * k + 1
-            quotients.append((v / d, slug))
+            quotients.append((v / d, name))
+
+    if not quotients:
+        return Counter()
 
     quotients.sort(reverse=True, key=lambda x: x[0])
     top = quotients[:total_seats]
 
-    seat_counts = Counter(s for _, s in top)
+    seat_counts = Counter(name for _, name in top)
     return seat_counts
 
 
@@ -153,19 +192,22 @@ def main():
         """
         <div class="nepal-header">
           <h1>Nepal PR Seat Calculator</h1>
-          <p>Live proportional seat estimate from Onlinekhabar results</p>
+          <p>Proportional seats from OnlineKhabar party list (HTML scraped)</p>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    # Loading spinner while fetching data
-    with st.spinner("Fetching latest proportional results..."):
+    with st.spinner("Fetching party-wise proportional votes from OnlineKhabar..."):
         try:
             df_all, fetched_at_utc = fetch_parties_df()
         except Exception as e:
-            st.error(f"Error fetching votes: {e}")
+            st.error(f"Error fetching/scraping votes: {e}")
             return
+
+    if df_all.empty:
+        st.error("No party vote data found on the page. HTML structure may have changed.")
+        return
 
     # Convert to Nepal time (UTC+5:45)
     nepal_offset_minutes = 5 * 60 + 45
@@ -173,7 +215,7 @@ def main():
     as_of_str = fetched_local.strftime("%Y-%m-%d %H:%M:%S")
 
     seat_counts = sainte_lague_from_df(df_all, int(total_seats))
-    df_all["Seats"] = df_all["Slug"].map(seat_counts).fillna(0).astype(int)
+    df_all["Seats"] = df_all["FullName"].map(seat_counts).fillna(0).astype(int)
     df_all["PartyDisplay"] = df_all["FullName"]
 
     df_view = df_all.copy()
@@ -188,12 +230,16 @@ def main():
     st.subheader("Proportional seats by party")
 
     for _, row in df_view.iterrows():
+        logo_html = ""
+        if isinstance(row["Logo"], str) and row["Logo"]:
+            logo_html = f'<img src="{row["Logo"]}" alt="logo">'
+
         st.markdown(
             f"""
             <div class="party-row">
               <div class="party-left">
                 <div class="party-logo">
-                  <img src="{row['Logo']}" alt="logo">
+                  {logo_html}
                 </div>
                 <div class="party-text">
                   <div class="party-name">{row['PartyDisplay']}</div>
