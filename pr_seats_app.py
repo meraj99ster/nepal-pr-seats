@@ -12,9 +12,10 @@ API_URL = (
 
 st.set_page_config(
     page_title="Nepal PR Seat Calculator",
-    page_icon="https://upload.wikimedia.org/wikipedia/commons/9/9b/Flag_of_Nepal.svg",
+    page_icon="https://upload.wikimedia.org/wikipedia/commons/thumb/9/9b/Flag_of_Nepal.svg/64px-Flag_of_Nepal.svg.png",
     layout="centered",
 )
+
 
 
 @st.cache_data(ttl=60)
