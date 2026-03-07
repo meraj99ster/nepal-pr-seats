@@ -135,3 +135,5 @@ def main():
         f"<span style='color:#DC143C;'>{total_allocated:,}</span></p>",
         unsafe_allow_html=True,
     )
+    
+main()
