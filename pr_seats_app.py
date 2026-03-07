@@ -1,5 +1,6 @@
 import requests
 from collections import Counter
+from datetime import datetime, timezone
 
 import pandas as pd
 import streamlit as st
@@ -9,7 +10,13 @@ API_URL = (
     "election-results?limit=10"
 )
 
+st.set_page_config(
+    page_title="Nepal PR Seat Calculator",
+    layout="centered",  # better on mobile than wide
+)
 
+
+@st.cache_data(ttl=60)  # cache API result for 60 seconds
 def fetch_parties_df():
     resp = requests.get(API_URL, timeout=20)
     resp.raise_for_status()
@@ -23,13 +30,14 @@ def fetch_parties_df():
             {
                 "Slug": p["party_slug"],
                 "FullName": p["party_name"],
-                "ShortName": p["party_nickname"],
                 "Logo": p["party_image"],
                 "Votes": int(p["samanupatik"]),
             }
         )
 
-    return pd.DataFrame(records)
+    df = pd.DataFrame(records)
+    fetched_at = datetime.now(timezone.utc)
+    return df, fetched_at
 
 
 def sainte_lague_from_df(df, total_seats=110):
@@ -38,7 +46,7 @@ def sainte_lague_from_df(df, total_seats=110):
     quotients = []
     for slug, v in votes.items():
         for k in range(total_seats * 3):
-            d = 2 * k + 1
+            d = 2 * k + 1  # 1,3,5,7,...
             quotients.append((v / d, slug))
 
     quotients.sort(reverse=True, key=lambda x: x[0])
@@ -49,7 +57,7 @@ def sainte_lague_from_df(df, total_seats=110):
 
 
 def main():
-    st.set_page_config(page_title="Nepal PR Seat Calculator", layout="centered")
+    total_seats = 110
 
     st.markdown(
         """
@@ -60,10 +68,14 @@ def main():
             border-radius: 10px;
             background: linear-gradient(90deg, #DC143C, #002B7F);
             color: white;
-            margin-bottom: 1.5rem;
+            margin-bottom: 1.0rem;
         }
-        .nepal-header h1 { font-size: 1.8rem; margin: 0; }
-        .nepal-header p { margin: 0.2rem 0 0; font-size: 0.9rem; opacity: 0.9; }
+        .nepal-header h1 { font-size: 1.4rem; margin: 0; }
+        .nepal-header p { margin: 0.2rem 0 0; font-size: 0.8rem; opacity: 0.9; }
+        @media (min-width: 768px) {
+            .nepal-header h1 { font-size: 1.8rem; }
+            .nepal-header p { font-size: 0.9rem; }
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -79,55 +91,49 @@ def main():
         unsafe_allow_html=True,
     )
 
-    with st.sidebar:
-        st.markdown("### Settings")
-        total_seats = st.number_input(
-            "Total proportional seats",
-            min_value=1,
-            max_value=500,
-            value=110,
-            step=1,
-        )
-        run_btn = st.button("Fetch & calculate")
-
-    if not run_btn:
-        st.info("Set total seats on the left and click **Fetch & calculate**.")
-        return
-
     try:
-        df_all = fetch_parties_df()
+        df_all, fetched_at_utc = fetch_parties_df()
     except Exception as e:
         st.error(f"Error fetching votes: {e}")
         return
 
+    # Convert to Nepal time (UTC+5:45) for display
+    nepal_offset_minutes = 5 * 60 + 45
+    fetched_local = fetched_at_utc + pd.Timedelta(minutes=nepal_offset_minutes)
+    as_of_str = fetched_local.strftime("%Y-%m-%d %H:%M:%S")
+
     seat_counts = sainte_lague_from_df(df_all, int(total_seats))
     df_all["Seats"] = df_all["Slug"].map(seat_counts).fillna(0).astype(int)
-
-    # Only full name for display
     df_all["PartyDisplay"] = df_all["FullName"]
 
-    # We are keeping independents; no filtering
     df_view = df_all.copy()
-
     df_view = df_view.sort_values(
         ["Seats", "Votes"], ascending=[False, False]
     ).reset_index(drop=True)
     df_view["VotesFormatted"] = df_view["Votes"].map(lambda x: f"{x:,}")
     df_view["SeatsFormatted"] = df_view["Seats"].map(lambda x: f"{x:,}")
 
+    # As-of timestamp
+    st.markdown(f"**As of:** {as_of_str}")
+
     st.subheader("Proportional seats by party")
 
-    # Build a simple table with logos
+    # Mobile-friendly rows with logos
     for _, row in df_view.iterrows():
-        cols = st.columns([1, 4, 2, 2])
+        cols = st.columns([1, 3, 2])
         with cols[0]:
             st.image(row["Logo"], width=40)
         with cols[1]:
             st.markdown(f"**{row['PartyDisplay']}**")
+            st.markdown(
+                f"<span style='font-size:0.85rem;'>Votes: {row['VotesFormatted']}</span>",
+                unsafe_allow_html=True,
+            )
         with cols[2]:
-            st.markdown(f"Votes: {row['VotesFormatted']}")
-        with cols[3]:
-            st.markdown(f"Seats: {row['SeatsFormatted']}")
+            st.markdown(
+                f"<span style='font-size:0.9rem;font-weight:600;'>Seats: {row['SeatsFormatted']}</span>",
+                unsafe_allow_html=True,
+            )
 
     total_allocated = df_all["Seats"].sum()
     st.markdown(
@@ -135,5 +141,7 @@ def main():
         f"<span style='color:#DC143C;'>{total_allocated:,}</span></p>",
         unsafe_allow_html=True,
     )
-    
-main()
+
+
+if __name__ == "__main__":
+    main()
