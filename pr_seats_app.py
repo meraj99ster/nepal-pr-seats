@@ -12,11 +12,12 @@ API_URL = (
 
 st.set_page_config(
     page_title="Nepal PR Seat Calculator",
-    layout="centered",  # better on mobile than wide
+    page_icon="https://upload.wikimedia.org/wikipedia/commons/9/9b/Flag_of_Nepal.svg",
+    layout="centered",
 )
 
 
-@st.cache_data(ttl=60)  # cache API result for 60 seconds
+@st.cache_data(ttl=60)
 def fetch_parties_df():
     resp = requests.get(API_URL, timeout=20)
     resp.raise_for_status()
@@ -46,7 +47,7 @@ def sainte_lague_from_df(df, total_seats=110):
     quotients = []
     for slug, v in votes.items():
         for k in range(total_seats * 3):
-            d = 2 * k + 1  # 1,3,5,7,...
+            d = 2 * k + 1
             quotients.append((v / d, slug))
 
     quotients.sort(reverse=True, key=lambda x: x[0])
@@ -91,11 +92,13 @@ def main():
         unsafe_allow_html=True,
     )
 
-    try:
-        df_all, fetched_at_utc = fetch_parties_df()
-    except Exception as e:
-        st.error(f"Error fetching votes: {e}")
-        return
+    # Loading screen
+    with st.spinner("Fetching latest proportional results..."):
+        try:
+            df_all, fetched_at_utc = fetch_parties_df()
+        except Exception as e:
+            st.error(f"Error fetching votes: {e}")
+            return
 
     # Convert to Nepal time (UTC+5:45) for display
     nepal_offset_minutes = 5 * 60 + 45
@@ -113,12 +116,10 @@ def main():
     df_view["VotesFormatted"] = df_view["Votes"].map(lambda x: f"{x:,}")
     df_view["SeatsFormatted"] = df_view["Seats"].map(lambda x: f"{x:,}")
 
-    # As-of timestamp
     st.markdown(f"**As of:** {as_of_str}")
 
     st.subheader("Proportional seats by party")
 
-    # Mobile-friendly rows with logos
     for _, row in df_view.iterrows():
         cols = st.columns([1, 3, 2])
         with cols[0]:
@@ -143,5 +144,4 @@ def main():
     )
 
 
-if __name__ == "__main__":
-    main()
+main()
