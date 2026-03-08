@@ -76,6 +76,7 @@ def fetch_parties_df():
 
 
 def sainte_lague_from_df(df, total_seats=110):
+    # Key directly by party name
     votes = {name: int(v) for name, v in zip(df["FullName"], df["Votes"])}
 
     quotients = []
@@ -192,7 +193,7 @@ def main():
         """
         <div class="nepal-header">
           <h1>Nepal PR Seat Calculator</h1>
-          <p>Proportional seats from OnlineKhabar party list (HTML scraped)</p>
+          <p>Proportional seats from OnlineKhabar party list (HTML scraped, 3% threshold)</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -209,12 +210,18 @@ def main():
         st.error("No party vote data found on the page. HTML structure may have changed.")
         return
 
+    # Apply 3% national threshold
+    total_valid_votes = df_all["Votes"].sum()
+    threshold_votes = 0.03 * total_valid_votes
+    eligible = df_all[df_all["Votes"] >= threshold_votes].copy()
+
     # Convert to Nepal time (UTC+5:45)
     nepal_offset_minutes = 5 * 60 + 45
     fetched_local = fetched_at_utc + pd.Timedelta(minutes=nepal_offset_minutes)
     as_of_str = fetched_local.strftime("%Y-%m-%d %H:%M:%S")
 
-    seat_counts = sainte_lague_from_df(df_all, int(total_seats))
+    # Allocate seats only among eligible parties
+    seat_counts = sainte_lague_from_df(eligible, int(total_seats))
     df_all["Seats"] = df_all["FullName"].map(seat_counts).fillna(0).astype(int)
     df_all["PartyDisplay"] = df_all["FullName"]
 
@@ -226,6 +233,10 @@ def main():
     df_view["SeatsFormatted"] = df_view["Seats"].map(lambda x: f"{x:,}")
 
     st.markdown(f"**As of:** {as_of_str}")
+    st.markdown(
+        f"**Total valid PR votes:** {total_valid_votes:,} &nbsp;&nbsp; "
+        f"**3% threshold:** {int(threshold_votes):,} votes"
+    )
 
     st.subheader("Proportional seats by party")
 
@@ -256,7 +267,7 @@ def main():
 
     total_allocated = df_all["Seats"].sum()
     st.markdown(
-        f"<p style='margin-top:0.8rem;font-weight:600;'>Total seats allocated: "
+        f"<p style='margin-top:0.8rem;font-weight:600;'>Total seats allocated (eligible parties only): "
         f"<span style='color:#DC143C;'>{total_allocated:,}</span></p>",
         unsafe_allow_html=True,
     )
