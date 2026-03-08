@@ -193,7 +193,7 @@ def main():
         """
         <div class="nepal-header">
           <h1>Nepal PR Seat Calculator</h1>
-          <p>Proportional seats from OnlineKhabar party list (HTML scraped, 3% threshold)</p>
+          <p>Proportional seats from OnlineKhabar</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -267,7 +267,7 @@ def main():
 
     total_allocated = df_all["Seats"].sum()
     st.markdown(
-        f"<p style='margin-top:0.8rem;font-weight:600;'>Total seats allocated (eligible parties only): "
+        f"<p style='margin-top:0.8rem;font-weight:600;'>Total seats allocated: "
         f"<span style='color:#DC143C;'>{total_allocated:,}</span></p>",
         unsafe_allow_html=True,
     )
