@@ -151,9 +151,9 @@ def main():
             font-weight: 600;
             font-size: 0.9rem;
             color: #111827;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            white-space: normal;      /* allow wrapping */
+            overflow: visible;        /* no clipping */
+            text-overflow: clip;      /* no ellipsis */
         }
         .party-votes {
             font-size: 0.8rem;
@@ -174,7 +174,7 @@ def main():
                 padding: 0.35rem 0.3rem;
             }
             .party-name {
-                max-width: 120px;
+                max-width: 100%;      /* full width on mobile */
             }
             .party-logo img {
                 width: 26px;
