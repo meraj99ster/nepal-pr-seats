@@ -241,9 +241,10 @@ def main():
     st.subheader("Proportional seats by party")
 
     for _, row in df_view.iterrows():
-        logo_html = ""
-        if isinstance(row["Logo"], str) and row["Logo"]:
-            logo_html = f'<img src="{row["Logo"]}" alt="logo">'
+        logo_html = '<div class="party-logo"><div style="width:30px;height:30px;background:#eee;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#999;">No Logo</div></div>'
+        if isinstance(row["Logo"], str) and row["Logo"] and row["Logo"].strip():
+            logo_html = f'<div class="party-logo"><img src="{row["Logo"]}" alt="logo"></div>'
+
 
         st.markdown(
             f"""
